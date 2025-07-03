@@ -1,0 +1,192 @@
+Day 1
+
+// Define a point for Cape Coast, Ghana
+var capeCoast = geometry;
+
+// Center the map on Cape Coast
+Map.centerObject(capeCoast, 13);
+
+// Create a feature and label it
+var feature = ee.Feature(capeCoast, {label: 'Cape Coast'});
+var featureCollection = ee.FeatureCollection([feature]);
+
+// Add the point to the map
+Map.addLayer(featureCollection, {color: 'blue'}, 'Cape Coast');
+
+// Add a label UI
+var label = ui.Label({
+  value: '📍 Cape Coast, Ghana',
+  style: {
+    position: 'bottom-left',
+    padding: '8px',
+    fontWeight: 'bold',
+    backgroundColor: 'white'
+  }
+});
+Map.add(label);
+
+
+
+Day 2
+var gaul = gaul3;
+var centralRegion = gaul
+  .filter(ee.Filter.eq('ADM0_NAME', 'Ghana'))
+  .filter(ee.Filter.eq('ADM1_NAME', 'Central'));
+
+// Print to console for verification
+print('Central Region:', centralRegion);
+
+// Load Sentinel-2 SR image collection
+var s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(centralRegion)
+  .filterDate('2023-01-01', '2023-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+  .median()
+  .clip(centralRegion);
+
+// Visualization parameters
+var visParams = {
+  bands: ['B4', 'B3', 'B2'], // RGB
+  min: 0,
+  max: 3000,
+  gamma: 1.2
+};
+
+// Add image to map
+Map.centerObject(centralRegion, 9);
+Map.addLayer(s2, visParams, 'Sentinel-2: Central Region');
+
+// Add boundary outline
+Map.addLayer(centralRegion.style({color: 'red', fillColor: '00000000'}), {}, 'Central Region Outline');
+
+// Add label
+var label = ui.Label({
+  value: '🛰 Sentinel-2 Imagery - Central Region, Ghana (2023)',
+  style: {
+    position: 'bottom-left',
+    padding: '8px',
+    fontWeight: 'bold',
+    backgroundColor: 'white'
+  }
+});
+Map.add(label);
+
+
+
+
+
+
+
+
+
+
+
+Day 3
+// Load FAO GAUL Level 1 boundaries and filter for Central Region
+var gaul = ee.FeatureCollection('FAO/GAUL_SIMPLIFIED_500m/2015/level1');
+var centralRegion = gaul
+  .filter(ee.Filter.eq('ADM0_NAME', 'Ghana'))
+  .filter(ee.Filter.eq('ADM1_NAME', 'Central'));
+
+// Load Sentinel-2 SR image collection
+var s2 = ee.ImageCollection('COPERNICUS/S2_SR')
+  .filterBounds(centralRegion)
+  .filterDate('2023-01-01', '2023-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))
+  .median()
+  .clip(centralRegion);
+
+// Calculate NDVI
+var ndvi = s2.normalizedDifference(['B8', 'B4']).rename('NDVI');
+
+// NDVI visualization parameters
+var ndviParams = {
+  min: 0,
+  max: 1,
+  palette: ['white', 'yellow', 'green']
+};
+
+// Center and add NDVI layer
+Map.centerObject(centralRegion, 9);
+Map.addLayer(ndvi, ndviParams, 'NDVI (Sentinel-2)');
+Map.addLayer(centralRegion.style({color: 'black', fillColor: '00000000'}), {}, 'Central Region');
+
+// ----------------------
+// Add Title
+// ----------------------
+var title = ui.Label({
+  value: '🌿 NDVI over Central Region, Ghana (2023)',
+  style: {
+    position: 'top-center',
+    fontSize: '20px',
+    fontWeight: 'bold',
+    padding: '10px',
+    backgroundColor: 'rgba(255,255,255,0.8)'
+  }
+});
+Map.add(title);
+
+// ----------------------
+// Add NDVI Legend
+// ----------------------
+var legend = ui.Panel({
+  style: {
+    position: 'bottom-right',
+    padding: '8px 15px',
+    backgroundColor: 'rgba(255,255,255,0.8)'
+  }
+});
+
+var legendTitle = ui.Label({
+  value: 'NDVI Scale',
+  style: {fontWeight: 'bold', fontSize: '14px', margin: '0 0 4px 0'}
+});
+legend.add(legendTitle);
+
+var makeColorBar = function(palette) {
+  var colorBar = ui.Thumbnail({
+    image: ee.Image.pixelLonLat().select(0)
+      .multiply((ndviParams.max - ndviParams.min) / 100)
+      .add(ndviParams.min),
+    params: {
+      bbox: [0, 0, 100, 10],
+      dimensions: '100x10',
+      format: 'png',
+      min: ndviParams.min,
+      max: ndviParams.max,
+      palette: palette
+    },
+    style: {stretch: 'horizontal', margin: '0px 8px'}
+  });
+  return colorBar;
+};
+
+legend.add(makeColorBar(ndviParams.palette));
+
+var legendLabels = ui.Panel({
+  widgets: [
+    ui.Label(ndviParams.min.toString(), {margin: '4px 8px'}),
+    ui.Label(((ndviParams.min + ndviParams.max) / 2).toFixed(1), {margin: '4px 8px', textAlign: 'center', stretch: 'horizontal'}),
+    ui.Label(ndviParams.max.toString(), {margin: '4px 8px'})
+  ],
+  layout: ui.Panel.Layout.flow('horizontal')
+});
+legend.add(legendLabels);
+Map.add(legend);
+
+// ----------------------
+// Add Visual Scale Label (Fake scale bar text)
+// ----------------------
+var scaleLabel = ui.Label({
+  value: 'Note: Zoom level 9 ≈ 10 km scale bar',
+  style: {
+    position: 'bottom-left',
+    fontSize: '12px',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    padding: '6px'
+  }
+});
+Map.add(scaleLabel);
+
+// Print NDVI to console
+print('NDVI Image:', ndvi);
